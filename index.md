@@ -16,7 +16,7 @@ Los artículos pueden leerse en cualquier orden. Aunque comparten una misma filo
 ## Temas que trataremos
 
 Entre otros asuntos, discutiremos:
-- El enlazador y otras utilidades fundamentales: columna vertebral de la infraestructura de software y la importancia de la interfaz binaria.
+- El enlazador y la importancia de la interfaz binaria: columna vertebral de la infraestructura de software.
 - El lenguaje C: bibliotecas, punteros, archivos de cabecera, gestión de memoria e interfaz binaria.
 - El lenguaje Fortran: compilación, distribución de programas, aspectos históricos, características modernas del lenguaje e interoperabilidad Fortran-Fortran y C-Fortran.
 - Programación orientada a pruebas: auditabilidad, reproducibilidad y validación de resultados.
@@ -24,4 +24,4 @@ Entre otros asuntos, discutiremos:
 - Diseño de infraestructuras fiables y extensibles mediante herramientas sencillas y ampliamente disponibles.
 - Ingeniería de software en el siglo XXI: la elección de la herramienta adecuada para cada problema.
 
-Las tecnologías de las que hablaremos son pocas, fiables y están presentes en una parte considerable de los sistemas informáticos actuales. El hilo conductor de esta serie es que comprenderlas en profundidad es una inversión valiosa para quien desee entender cómo se construye, mantiene y distribuye software de calidad.
+Las tecnologías de las que hablaremos son pocas, fiables y están presentes en una parte considerable de los sistemas informáticos actuales. El hilo conductor de esta serie es que comprenderlas en profundidad es una inversión valiosa para quien desee entender cómo se diseña, mantiene y distribuye software de calidad.
