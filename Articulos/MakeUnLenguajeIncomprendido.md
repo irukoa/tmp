@@ -257,15 +257,80 @@ Conviene señalar que la elección de `gcc` como extractor de dependencias no es
 
 ### El caso de Fortran
 
-El caso de C resulta relativamente sencillo porque las dependencias derivan exclusivamente de las directivas de inclusión. Fortran presenta escenarios considerablemente más complejos y constituye una prueba más exigente para cualquier sistema de construcción. Esto pone de manifiesto una idea importante: la complejidad del sistema de construcción no siempre es consecuencia de las limitaciones de Make. Con frecuencia, refleja la complejidad inherente al problema que intentamos resolver.
+El caso de C resulta relativamente sencillo porque las dependencias derivan exclusivamente de las directivas `#include`. Fortran presenta escenarios considerablemente más complejos y constituye una prueba más exigente para cualquier sistema de construcción. Esto pone de manifiesto una idea importante: la complejidad del sistema de construcción no siempre es consecuencia de las limitaciones de Make. Con frecuencia, refleja la complejidad inherente del problema que intentamos resolver.
 
-POR REDACTAR
+Fortran dispone de una semántica más rica que C. Un módulo permite encapsular definiciones y controlar su visibilidad. Además, el lenguaje permite separar interfaz e implementación mediante submódulos y varias unidades de programa pueden coexistir en un mismo archivo fuente. Esta riqueza semántica tiene consecuencias directas sobre el proceso de compilación.
 
-## Integración de artefactos de terceros
+La mayoría de compiladores de Fortran generan archivos auxiliares, habitualmente con extensión `.mod`, al compilar módulos. Estos archivos contienen información necesaria para compilar otras unidades que empleen sentencias `use`. De forma análoga, los submódulos suelen inducir la generación de archivos `.smod`. Observamos, por tanto, que las dependencias en Fortran no son únicamente textuales: forman parte del propio proceso de compilación. En consecuencia, el sistema de construcción debe decidir cómo tratar estos artefactos. En este apartado consideraremos un módulo de proyecto escrito en Fortran, `src/ModuloF`, y discutiremos el diseño de su correspondiente `Reg.mk`.
 
-Los proyectos reales rara vez se limitan al código desarrollado dentro del propio repositorio. Bibliotecas externas, generadores de código o herramientas auxiliares forman parte habitual del proceso de construcción. Conviene, por tanto, disponer de mecanismos que permitan integrar estos artefactos sin comprometer la claridad del sistema global.
+#### Serialización
 
-POR REDACTAR
+El método más sencillo consiste en ignorar completamente los archivos `.mod` y describir manualmente el orden de compilación entre las distintas unidades del proyecto. Este enfoque no requiere extractores de dependencias ni la consideración explícita de los archivos `.mod` y `.smod` como objetivos del sistema de construcción. El compilador se encarga de generarlos y consumirlos conforme avanza la compilación.
+
+```make
+# src/ModuloF/Reg.mk
+DIR  := src/ModuloF
+SRCS += $(wildcard $(DIR)/*.F90)
+OBJS += $(patsubst $(DIR)/%.F90,$(OBJ)/%.o,$(wildcard $(DIR)/*.F90))
+
+ModuloF1.o: ModuloF1.F90 | $(OBJ)
+    $(FC) $(FFLAGS) $(INC) $(DEFS) -c $< -o $@
+
+ModuloF2.o: ModuloF2.F90 ModuloF1.o | $(OBJ)
+    $(FC) $(FFLAGS) $(INC) $(DEFS) -c $< -o $@
+
+# [...]
+
+DIR  :=
+```
+
+Este método es perfectamente funcional y, en proyectos pequeños, puede resultar suficiente. Sin embargo, obliga al desarrollador a mantener manualmente las relaciones de dependencia entre módulos. Además, al imponer un orden de compilación explícito, dificulta la explotación del paralelismo disponible durante la construcción del proyecto.
+
+#### Archivos `.mod` como artefactos de primer orden
+
+La idea fundamental de este método, también propuesto en [otros artículos](https://aoterodelaroza.github.io/devnotes/modern-fortran-makefiles/), consiste en dejar de considerar los archivos `.mod` y `.smod` como un detalle interno del compilador y tratarlos, en cambio, como artefactos legítimos del sistema de construcción. Desde esta perspectiva, los archivos `.mod` dejan de ser un efecto secundario de la compilación y pasan a formar parte del grafo de dependencias del proyecto. Otros archivos fuente dependen de ellos y condicionan qué unidades pueden compilarse simultáneamente. Ignorar estos artefactos equivale, en cierta medida, a ocultar parte de la estructura real del software.
+
+Este enfoque requiere un mayor esfuerzo inicial, pero permite expresar las dependencias de forma más fiel y explotar el paralelismo inherente del proyecto. Make puede entonces razonar sobre archivos `.mod`, `.smod` y archivos objeto de forma completamente natural. La principal dificultad radica en que los compiladores de Fortran ofrecen mecanismos heterogéneos para gestionar estos artefactos. Algunos proporcionan opciones específicas para generar únicamente archivos `.mod`, mientras que otros no disponen de una funcionalidad equivalente. Por ejemplo, `gfortran` dispone [`-fsyntax-only`](https://gcc.gnu.org/onlinedocs/gfortran/Error-and-Warning-Options.html#index-fsyntax-only). Una estrategia razonablemente portable consiste en compilar normalmente y descartar el archivo objeto generado cuando únicamente deseemos obtener los archivos `.mod`. De forma análoga, podemos generar archivos objeto y descartar posteriormente los correspondientes `.mod`. Este planteamiento exige conocer adecuadamente las opciones de gestión de directorios del compilador empleado. Por ejemplo, `gfortran` emplea `-I` para localizar archivos `.mod`, mientras que la opción [`-J`](https://gcc.gnu.org/onlinedocs/gfortran/Directory-Options.html#index-Jdir) permite tanto especificar el directorio donde generarlos como incorporarlo automáticamente a la ruta de búsqueda.
+
+Los extractores de dependencias desempeñan aquí un papel fundamental. Su función consiste en identificar las relaciones entre archivos fuente y artefactos `.mod` y `.smod`, permitiendo que Make reconstruya el grafo de dependencias del proyecto. Una vez disponible esta información, el sistema de construcción puede determinar qué artefactos deben generarse y cuáles pueden compilarse en paralelo. Lamentablemente, no existe una herramienta dominante para la extracción de dependencias en Fortran. Existen [diversas alternativas](https://fortran-lang.discourse.group/t/automatic-make-recipes-generation/10570/5), algunas estrechamente ligadas a compiladores concretos y otras con un mantenimiento limitado. Ante esta situación, desarrollé [`FortranDep`](https://github.com/irukoa/FortranDep) con el propósito de disponer de un extractor sencillo y portable, inspirado en la filosofía de `gcc`: una herramienta pequeña, fácil de integrar y centrada exclusivamente en la generación de dependencias. Es la utilidad que empleo habitualmente en mis propios proyectos. Tiendo a descargarlo en la carpeta `tools/` del proyecto y olvidarme de que está ahí. Esto permite construir archivos `Reg.mk` considerablemente más sencillos de mantener:
+
+```make
+# src/ModuloF/Reg.mk
+DIR  := src/ModuloF
+SRCS += $(wildcard $(DIR)/*.F90)
+OBJS += $(patsubst $(DIR)/%.F90,$(OBJ)/%.o,$(wildcard $(DIR)/*.F90))
+
+# Nota: empleamos las opciones de directorios de gfortran.
+$(OBJ)/%.o: | $(OBJ) $(DSC)
+    $(FC) $(FFLAGS) -J$(DSC) -I$(OBJ) $(INC) $(DEFS) -c $< -o $@
+    $(RM) $(DSC)/*
+
+$(OBJ)/%.d: $(DIR)/%.F90 | $(OBJ)
+    $(FDEPSCRIPT) $< $(OBJ) $(DEFS) > $@ || $(RM) $@
+
+$(OBJ)/%.mod $(OBJ)/%.smod &: | $(OBJ) $(DSC)
+    $(RM) $(OBJ)/$*.mod $(OBJ)/$*.smod
+    $(FC) $(FFLAGS) -J$(OBJ) -I$(OBJ) $(INC) $(DEFS) -c $< -o $(DSC)/$@
+    $(RM) $(DSC)/*
+
+DIR  :=
+```
+
+La variable `$(FDEPSCRIPT)` desempeña un papel análogo a `$(DEPSCRIPT)` en el caso de C. Generamos los archivos objeto de la forma habitual y descartamos los archivos `.mod` producidos durante dicho proceso. Por otro lado, generamos los archivos `.mod` y `.smod`, descartando los correspondientes archivos objeto. Las dependencias obtenidas mediante el extractor se incorporan posteriormente al sistema de construcción mediante la directiva `include`, análogamente al caso de C. Además, la [regla múltiple](https://www.gnu.org/software/make/manual/html_node/Multiple-Targets.html) empleada para los archivos `.mod` y `.smod` informa explícitamente a Make de que ambos artefactos se generan simultáneamente. Este detalle evita reconstrucciones innecesarias y refleja con mayor fidelidad el comportamiento del compilador.
+
+En última instancia, este enfoque permite trasladar al caso de Fortran la misma filosofía empleada anteriormente en C: separar la generación de artefactos de la determinación de dependencias. La diferencia es que, en Fortran, dichas dependencias forman parte de la propia semántica del lenguaje. El sistema de construcción no puede ignorarlas; debe representarlas adecuadamente.
+
+Finalmente, recomiendo crear una utilidad análoga a la de C. Yo suelo hacer `FDEPSCRIPT := ./tools/GetFDeps.sh`, donde una implementación mínima es
+
+```bash
+#!/bin/bash
+File="$1"
+Dir="$2"
+shift 2
+./tools/FortranDep -d $File $@ | # Obtiene dependencias.
+sed -E "s@(^|[[:space:]])([^[:space:]]+\.(o|d|mod|smod))@\1$Dir/\2@g" | # Añade una ruta directorio al inicio.
+sed -E 's@^([^:]+)\.mod:@\1.mod \1.smod:@' # Añade una entrada `.smod`.
+```
 
 ## Perfiles
 
