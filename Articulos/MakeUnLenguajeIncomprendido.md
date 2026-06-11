@@ -334,18 +334,28 @@ sed -E 's@^([^:]+)\.mod:@\1.mod \1.smod:@' # Añade una entrada `.smod`.
 
 ## Perfiles
 
-POR REDACTAR
+Gran parte de los sistemas de software actuales distinguen habitualmente dos perfiles con los que trabajar, el de depuración y prueba, y el de producción y distribución. Aunque cada proyecto establece sus propios requisitos, resulta habitual distinguir entre un perfil orientado al desarrollo y otro orientado a la distribución del software. En esta sección trataremos sobre el papel que Make juega en cada uno de los perfiles, asi como sus características mas transversales.
 
 ### Depuración y pruebas
 
-POR REDACTAR
+Este es un perfil adaptado al desarrollador. Se caracteriza por compilar con símbolos de depuración, asi como con métricas de cobertura. Esto habilita un control total sobre el código. Habitualmente, esta clase de perfiles incorporan una infraestructura de pruebas que permite validar el comportamiento del software y detectar regresiones durante el desarrollo.
+
+En este contexto, Make actúa como orquestador del proceso de validación. Además de compilar el proyecto, puede encargarse de construir las herramientas auxiliares necesarias, ejecutar las pruebas y recopilar métricas asociadas al proceso de validación. En [otro artículo](https://irukoa.github.io/ApuntesInfraestructuraSoftware/Articulos/ProgramacionOrientadaAPruebas.html) tratamos mas a fondo este concepto.
 
 ### Producción y distribución
 
-POR REDACTAR
+Este es un perfil adaptado al consumidor. Aquí tiende a haber demasiada variedad como para identificar un denominador comun mas allá del siguiente contrato: el perfil encapsula el proceso de compilación del software. En este sentido, diseñamos una capa de abstracción sobre el código fuente y tratamos de convertir la construcción en una interfaz estable. Idealmente, la construcción completa del software debería poder iniciarse mediante una interfaz estable y sencilla, delegando en Make la ejecución de los pasos necesarios.
+
+En este contexto, Make actúa como la implementación del proceso de construcción, mientras que el perfil constituye la interfaz expuesta al consumidor del software.
+
+---
+
+Los perfiles ponen de manifiesto que el sistema de construcción no es un mera nota en el proyecto. Constituye una parte más de su diseño y debe responder a las necesidades de quienes interactúan con el software en distintas etapas de su ciclo de vida.
 
 ## Conclusión
 
 Make obliga al programador a hacer explícitas ciertas relaciones que otras herramientas tienden a ocultar. Esta explicitud tiene un coste: exige disciplina y comprensión del proceso de construcción. Sin embargo, también proporciona una ventaja significativa. El sistema de compilación deja de ser una caja negra y pasa a convertirse en una característica más del software, susceptible de ser razonada, revisada y mantenida con el mismo cuidado que el resto del código.
+
+Quizá la principal enseñanza que ofrece Make sea que la construcción del software forma parte del propio software. Las dependencias entre componentes, la generación incremental de artefactos o la organización de los distintos perfiles de trabajo no son preocupaciones accesorias: condicionan la forma en que desarrollamos, validamos y distribuimos nuestros programas. Comprender estos mecanismos conserva su valor incluso cuando decidimos delegarlos en herramientas más sofisticadas.
 
 La cuestión no consiste en determinar si Make es superior o inferior a otros sistemas de construcción. La cuestión consiste en comprender qué problemas resuelve adecuadamente y qué enseñanzas proporciona incluso cuando finalmente optamos por herramientas de mayor nivel.
